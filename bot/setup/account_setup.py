@@ -44,10 +44,9 @@ def _restore_from_env() -> dict | None:
     """
     Check if we have existing credentials in env vars (Railway persistence).
     If so, restore them to dev-agent/ and return creds dict.
-    This prevents generating new wallets on every container restart.
     
-    PATCHED: Cukup API_KEY saja sudah cukup untuk restore,
-    tidak perlu AGENT_PRIVATE_KEY juga.
+    PATCHED v2: Hanya restore kalau API_KEY DAN OWNER_EOA keduanya ada.
+    Kalau OWNER_EOA kosong, return None supaya bot generate wallet baru.
     """
     api_key = os.getenv("API_KEY", "")
     agent_pk = os.getenv("AGENT_PRIVATE_KEY", "")
@@ -56,9 +55,9 @@ def _restore_from_env() -> dict | None:
     owner_addr = os.getenv("OWNER_EOA", "")
     agent_name = os.getenv("AGENT_NAME", "")
 
-    # PATCH: API_KEY saja sudah cukup — tidak butuh AGENT_PRIVATE_KEY
-    if not api_key:
-        return None  # Benar-benar first run
+    # Butuh API_KEY dan OWNER_EOA — kalau salah satu kosong, generate baru
+    if not api_key or not owner_addr:
+        return None
 
     log.info("♻️ Restoring credentials from Railway Variables (env vars)...")
 
@@ -96,7 +95,6 @@ def _restore_from_env() -> dict | None:
 
     log.info("✅ Credentials restored from env vars — skipping wallet generation")
     return creds
-
 
 async def run_first_run_intake() -> dict:
     """

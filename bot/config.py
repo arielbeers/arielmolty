@@ -9,7 +9,34 @@ from dotenv import load_dotenv
 load_dotenv()
 
 # ── Skill / API version ──────────────────────────────────────────────
-SKILL_VERSION = "1.5.2"
+import asyncio
+import httpx as _httpx
+
+def _fetch_skill_version(fallback: str) -> str:
+    """Auto-detect correct SKILL_VERSION from server."""
+    override = os.getenv("SKILL_VERSION", "")
+    if override:
+        return override
+    try:
+        resp = _httpx.get(
+            "https://cdn.moltyroyale.com/api/version",
+            timeout=5.0,
+        )
+        data = resp.json()
+        # Try common response shapes
+        version = (
+            data.get("data", {}).get("version")
+            or data.get("version")
+            or data.get("skillVersion")
+            or data.get("data", {}).get("skillVersion")
+        )
+        if version:
+            return str(version)
+    except Exception:
+        pass
+    return fallback
+
+SKILL_VERSION = _fetch_skill_version("1.5.2")
 
 # ── URLs ──────────────────────────────────────────────────────────────
 API_BASE = "https://cdn.moltyroyale.com/api"

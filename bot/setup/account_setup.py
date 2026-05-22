@@ -163,6 +163,33 @@ async def run_first_run_intake() -> dict:
         update_env_file("OWNER_EOA", owner_address)
 
     # Step 4: Create account via API
+    # Kalau API_KEY sudah ada di env, skip pembuatan account baru
+    existing_api_key = os.getenv("API_KEY", "")
+    if existing_api_key:
+        log.info("API_KEY found in env — skipping account creation, using existing key.")
+        creds = {
+            "api_key": existing_api_key,
+            "agent_name": agent_name,
+            "agent_wallet_address": agent_address,
+            "owner_eoa": owner_address,
+        }
+        save_credentials(creds)
+        update_env_file("AGENT_WALLET_ADDRESS", agent_address)
+        update_env_file("AGENT_NAME", agent_name)
+        intake = {
+            "agent_name": agent_name,
+            "advanced_mode": ADVANCED_MODE,
+            "owner_eoa": owner_address,
+            "agent_wallet_generated": True,
+            "owner_wallet_generated": ADVANCED_MODE,
+        }
+        save_owner_intake(intake)
+        from bot.utils.railway_sync import is_railway, sync_all_to_railway
+        if is_railway():
+            log.info("Detected Railway — syncing all variables in one batch...")
+            await sync_all_to_railway(creds, agent_pk, owner_pk)
+        return creds
+
     log.info("Creating account via POST /accounts...")
     api = MoltyAPI()
     try:

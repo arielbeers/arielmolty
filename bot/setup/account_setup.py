@@ -40,12 +40,14 @@ def _ask_or_env(prompt: str, env_value: str, default: str = "") -> str:
         log.info("Using default: %s", default)
     return default
 
-
 def _restore_from_env() -> dict | None:
     """
     Check if we have existing credentials in env vars (Railway persistence).
     If so, restore them to dev-agent/ and return creds dict.
     This prevents generating new wallets on every container restart.
+    
+    PATCHED: Cukup API_KEY saja sudah cukup untuk restore,
+    tidak perlu AGENT_PRIVATE_KEY juga.
     """
     api_key = os.getenv("API_KEY", "")
     agent_pk = os.getenv("AGENT_PRIVATE_KEY", "")
@@ -54,18 +56,24 @@ def _restore_from_env() -> dict | None:
     owner_addr = os.getenv("OWNER_EOA", "")
     agent_name = os.getenv("AGENT_NAME", "")
 
-    if not api_key or not agent_pk:
-        return None  # No env credentials — truly first run
+    # PATCH: API_KEY saja sudah cukup — tidak butuh AGENT_PRIVATE_KEY
+    if not api_key:
+        return None  # Benar-benar first run
 
     log.info("♻️ Restoring credentials from Railway Variables (env vars)...")
 
-    # Restore wallet files
+    # Restore wallet files hanya kalau ada
     if agent_pk and agent_addr:
         save_agent_wallet(agent_addr, agent_pk)
         log.info("  Restored Agent wallet: %s", agent_addr[:12] + "...")
+    elif agent_addr:
+        log.info("  Agent address found (no private key): %s", agent_addr[:12] + "...")
+
     if owner_pk and owner_addr:
         save_owner_wallet(owner_addr, owner_pk)
         log.info("  Restored Owner wallet: %s", owner_addr[:12] + "...")
+    elif owner_addr:
+        log.info("  Owner address found (no private key): %s", owner_addr[:12] + "...")
 
     # Restore credentials file
     creds = {
@@ -81,7 +89,7 @@ def _restore_from_env() -> dict | None:
         "agent_name": agent_name,
         "advanced_mode": ADVANCED_MODE,
         "owner_eoa": owner_addr,
-        "agent_wallet_generated": True,
+        "agent_wallet_generated": bool(agent_addr),
         "owner_wallet_generated": bool(owner_pk),
     }
     save_owner_intake(intake)
